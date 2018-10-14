@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Net;
+using System.Threading.Tasks;
 using System.Web;
 
 namespace ArchiveDotOrgTvDownloader
@@ -36,23 +38,38 @@ namespace ArchiveDotOrgTvDownloader
             }
 
             int end = startSeconds / 60 + numSegments;
+            List<Task> tasks = new List<Task>();
             for (int i = startSeconds / 60; i < end; i++)
             {
-                try
-                {
-                    qs.Set("start", (i * segmentSeconds).ToString());
-                    qs.Set("end", (i * segmentSeconds + segmentSeconds).ToString());
-                    var uriBuilder = new UriBuilder(uri);
-                    uriBuilder.Query = qs.ToString();
-                    var newUri = uriBuilder.Uri;
-                    Console.WriteLine($"Downloading {newUri}");
-                    new WebClient().DownloadFile(newUri, "download" + (i + 1).ToString() + ".mp4");
-                }
-                catch( Exception ex)
-                {
-                    Console.WriteLine(ex);
-                    Console.ReadKey();
-                }
+                int index = i;
+                var task = new Task(() => Download(uri.ToString(), index, segmentSeconds));
+                tasks.Add(task);
+                task.Start();
+            }
+            Task.WaitAll(tasks.ToArray());
+            Console.WriteLine("Downloads complete!");
+            Console.ReadKey();
+        }
+
+        private static void Download(string url, int i, int segmentSeconds)
+        {
+            try
+            {
+                Uri uri = new Uri(url);
+                var qs = HttpUtility.ParseQueryString(uri.Query);
+                qs.Set("start", (i * segmentSeconds).ToString());
+                qs.Set("end", (i * segmentSeconds + segmentSeconds).ToString());
+                var uriBuilder = new UriBuilder(uri);
+                uriBuilder.Query = qs.ToString();
+                Console.WriteLine($"Downloading {uriBuilder.Uri}");
+                var fileName = "download" + (i + 1).ToString() + ".mp4";
+                new WebClient().DownloadFile(uriBuilder.Uri, fileName);
+                Console.WriteLine($"Download Complete for {fileName}");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex);
+                Console.ReadKey();
             }
         }
     }
